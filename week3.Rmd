@@ -1,0 +1,126 @@
+---
+title: "Week3-ATurner-5210"
+author: "Andy Turner"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=TRUE}
+# Load Packages
+library(readxl)
+library(tidyverse)
+library(vtable)
+```
+
+1. EITHER save the data sheet as its own CSV file to load in, OR use the read_excel function in the readxl package to read the sheet in directly from the Excel workbook.
+```{r}
+raw_data <- read_excel("C:/Users/turne/OneDrive/gradschool/5210 Data Visualization/Week 3/USMA_Progression.xlsx")
+```
+
+
+2. Recreate the femalespeers, malespeers, and totpeople columns based on the documentation for those columns, and check whether your calculations match what's in the original data. In other words, look at the excel sheet, read the variable descriptions, and create new variables that fit those descriptions. "Recreate" means "create from scratch." Do not use the femalespeers, malespeers, and totpeople columns already in the data to create your new ones. That wouldn't be "recreating", that would be "copying."   (NOTE 1: you won't get an exact match with the old columns, NOTE 2: keep in mind these variables count "peers", i.e. not including yourself).
+
+```{r}
+recreated <- raw_data %>% 
+  group_by(year, class, company_n) %>% 
+  mutate(femalespeers2 = sum(female == 1)) %>%
+  mutate(malespeers2 = sum(female == 0)) %>% 
+  mutate(totpeople2 = sum(femalespeers2 + malespeers2)) %>% 
+  mutate(matchfem = case_when(
+    femalespeers == femalespeers2 ~ 0,
+    femalespeers != femalespeers2 ~ 1
+  )) %>% 
+  mutate(matchmale = case_when(
+    malespeers == malespeers2 ~ 0,
+    malespeers != malespeers2 ~ 1
+  ))
+
+no_match_fem <- recreated %>% 
+  select(year, class, company_n, matchfem, matchmale,
+         femalespeers, femalespeers2, female) %>% 
+  filter(matchfem == 1)
+View(no_match_fem)
+
+no_match_male <- recreated %>% 
+  select(year, class, company_n, matchfem, matchmale,
+         malespeers, malespeers2, female) %>% 
+  filter(matchmale == 1)
+View(no_match_male)
+
+summary(recreated)
+sum(recreated$femalespeers)
+sum(recreated$femalespeers2)
+```
+
+
+3. Investigate the rows for which your recreation *doesn't* line up exactly with the original columns. Any ideas what the issue might be? Do you trust the original or your recreation more?
+
+The issue might be:
+
+I trust my recreation more. Filtering the data set to:
+  Year: 78
+  Company: A-2
+We see there are five femalepeers in the original data, but there are no females.
+
+
+4. Create two new columns from company_n: company, and division. If it's A-1, for example, A is the company, and 1 is the division.
+```{r}
+new_cols <- recreated %>% 
+  separate(col = company_n, 
+           into = c('company', 'division'),
+           sep = '\\-',
+           remove = FALSE)
+```
+
+
+5. This data follows a certain number of cohorts, which means that in the first year of the data, we only see a small portion of all students, then more the next year, and so on. Limit the data just to years in which you have all four classes present in full quantity (i.e. not just a few stragglers but all four entire classes appear to be there. This will entail finding which years those are).
+
+```{r}
+all_four <- new_cols %>% 
+  filter(year > 79, year < 82)
+view(all_four)
+```
+
+
+
+6. Make the following tables:
+
+a. Top four companies (A, B, C, etc., not A-1, A-2) with the highest continue_or_grad rates
+
+
+```{r}
+top_companies <- new_cols %>% 
+  group_by(company) %>% 
+  summarize(GradRate = sum(continue_or_grad)) %>%
+  arrange(desc(GradRate), .by_group = TRUE) %>%
+  slice(1:4)
+
+labeltable(top_companies$company, top_companies$GradRate)
+top_companies
+```
+
+
+
+b. continue_or_grad rates by class
+
+
+
+c. continue_or_grad rates of women by class
+
+
+
+Note you can make a table by just creating the appropriate data set and showing it, or by sending it to the knitr::kable() function to get it formatted a little more nicely.
+
+
+7. Bonus task (ungraded, tricky): notice anything strange about the "random assignment" of women?
+
+
+Questions for Prof:
+** ARE GRAD RATES A PERCENTAGE? OR TOTAL GRADS?
+** How do peers work?
+** Tables satisfy spec?
+
